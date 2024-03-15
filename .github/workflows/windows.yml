@@ -14,8 +14,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [Win32, x64]
-        config: [Debug, Release]
+        arch: [x64]
+        config: [Release]
         link: [static, dll]
 
         include:
@@ -25,9 +25,23 @@ jobs:
           shlib: "ON"
     steps:
       - uses: actions/checkout@v3
+      - name: Checkout pcaudiolib
+        uses: actions/checkout@v3
+        with:
+          repository: espeak-ng/pcaudiolib
+          path: src/pcaudiolib
       - name: configure
         run: cmake -Bbuild -DUSE_ASYNC:BOOL=OFF -DBUILD_SHARED_LIBS:BOOL=${{ matrix.shlib }} -A ${{ matrix.arch }}
       - name: make
         run: cmake --build build --config ${{ matrix.config }}
       - name: make check
         run: ctest --test-dir build -Ttest -C ${{ matrix.config }} -j1 --output-on-failure
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v1.1
+      - name: build MSI
+        run: msbuild src/windows/espeak-ng.sln
+      - name: Upload MSI
+        uses: actions/upload-artifact@v2
+        with:
+          name: MSI
+          path: '**/*.msi'
