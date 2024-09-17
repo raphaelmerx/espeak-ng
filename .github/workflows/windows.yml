@@ -1,0 +1,57 @@
+name: Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ piper_tetun ]
+  pull_request:
+    branches: [ piper_tetun ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    name: "build: ${{ matrix.arch }} ${{ matrix.config }} ${{ matrix.link }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64]
+        config: [Release]
+        link: [dll]
+
+        include:
+        - link: static
+          shlib: "OFF"
+        - link: dll
+          shlib: "ON"
+    steps:
+      - uses: actions/checkout@v3
+      - name: Checkout pcaudiolib
+        uses: actions/checkout@v3
+        with:
+          repository: espeak-ng/pcaudiolib
+          path: src/pcaudiolib
+      - name: configure
+        run: cmake -Bbuild -DUSE_ASYNC:BOOL=OFF -DBUILD_SHARED_LIBS:BOOL=${{ matrix.shlib }} -A ${{ matrix.arch }}
+      - name: make
+        run: cmake --build build --config ${{ matrix.config }}
+      - name: make check
+        run: ctest --test-dir build -Ttest -C ${{ matrix.config }} -j1 --output-on-failure
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v1.1
+      - name: build MSI
+        run: msbuild src/windows/espeak-ng.sln
+      - name: Upload MSI
+        uses: actions/upload-artifact@v2
+        with:
+          name: MSI
+          path: '**/*.msi'
+      - name: Upload espeak-ng-data
+        uses: actions/upload-artifact@v2
+        with:
+          name: espeak-ng-data
+          path: 'build/espeak-ng-data/**'
+      - name: Upload Release
+        uses: actions/upload-artifact@v2
+        with:
+          name: release
+          path: 'build/src/Release/**'
